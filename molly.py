@@ -106,7 +106,7 @@ if question := st.chat_input("please ask me a question"):
     # st.session_state.messages.append({'role':'user','content':question})
     with st.chat_message("ai"):
         #file_callback = FileCallbackHandler(CONFIG_YAML["LOGGER"]["file"])
-        file_callback = FileCallbackHandler(CONFIG_YAML["LOGGER"]["dir"] + st.session_state['session_id'])
+        file_callback = FileCallbackHandler(CONFIG_YAML["LOGGER"]["dir"] + st.session_state['session_id'] + ".log")
         st_callback = StreamlitCallbackHandlerChem(
             st.container(),
             max_thought_containers = 3,
