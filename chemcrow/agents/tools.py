@@ -4,7 +4,7 @@ from langchain import agents
 from langchain.base_language import BaseLanguageModel
 
 from chemcrow.tools import *
-
+from chemcrow.tools.reactions import RXNPredictLocal,RXNRetrosynthesisLocal
 
 def make_tools(llm: BaseLanguageModel, api_keys: dict = {}, local_rxn: bool=False, verbose=True):
     serp_api_key = api_keys.get("SERP_API_KEY") or os.getenv("SERP_API_KEY")
@@ -38,10 +38,11 @@ def make_tools(llm: BaseLanguageModel, api_keys: dict = {}, local_rxn: bool=Fals
         ControlChemCheck(),
         SimilarControlChemCheck(),
         SafetySummary(llm=llm),
+        #将原本的semantic_scholar_api_key的换成了goolge的
         Scholar2ResultLLM(
             llm=llm,
             openai_api_key=openai_api_key,
-            semantic_scholar_api_key=semantic_scholar_api_key
+            serp_api_key=serp_api_key
         ),
     ]
     if chemspace_api_key:

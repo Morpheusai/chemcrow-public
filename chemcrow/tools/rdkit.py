@@ -6,8 +6,8 @@ from chemcrow.utils import *
 
 
 class MolSimilarity(BaseTool):
-    name = "MolSimilarity"
-    description = (
+    name:str = "MolSimilarity"
+    description :str = (
         "Input two molecule SMILES (separated by '.'), returns Tanimoto similarity."
     )
 
@@ -49,8 +49,8 @@ class MolSimilarity(BaseTool):
 
 
 class SMILES2Weight(BaseTool):
-    name = "SMILES2Weight"
-    description = "Input SMILES, returns molecular weight."
+    name:str = "SMILES2Weight"
+    description:str = "Input SMILES, returns molecular weight."
 
     def __init__(
         self,
@@ -70,8 +70,8 @@ class SMILES2Weight(BaseTool):
 
 
 class FuncGroups(BaseTool):
-    name = "FunctionalGroups"
-    description = "Input SMILES, return list of functional groups in the molecule."
+    name:str = "FunctionalGroups"
+    description:str = "Input SMILES, return list of functional groups in the molecule."
     dict_fgs: dict = None
 
     def __init__(

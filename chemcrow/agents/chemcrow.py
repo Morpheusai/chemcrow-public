@@ -39,7 +39,8 @@ class ChemCrow:
         self,
         tools=None,
         model="gpt-4-0613",
-        tools_model="gpt-3.5-turbo-0613",
+        #原本的定义的tools_model模型已经不支持了
+        tools_model="gpt-4-0613",
         temp=0.1,
         max_iterations=40,
         verbose=True,
@@ -84,3 +85,4 @@ class ChemCrow:
     def run(self, prompt):
         outputs = self.agent_executor({"input": prompt})
         return outputs["output"]
+

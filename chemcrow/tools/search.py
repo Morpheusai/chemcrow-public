@@ -1,6 +1,6 @@
 import os
 import re
-
+import asyncio
 import langchain
 import molbloom
 import paperqa
@@ -10,22 +10,12 @@ from langchain.base_language import BaseLanguageModel
 from langchain.tools import BaseTool
 from langchain.embeddings.openai import OpenAIEmbeddings
 from pypdf.errors import PdfReadError
-
+from pathlib import Path
 from chemcrow.utils import is_multiple_smiles, split_smiles
 
 
-def paper_scraper(search: str, pdir: str = "query", semantic_scholar_api_key: str = None) -> dict:
-    try:
-        return paperscraper.search_papers(
-            search,
-            pdir=pdir,
-            semantic_scholar_api_key=semantic_scholar_api_key,
-        )
-    except KeyError:
-        return {}
 
-
-def paper_search(llm, query, semantic_scholar_api_key=None):
+def paper_search(llm, query,serp_api_key= None, semantic_scholar_api_key=None):
     prompt = langchain.prompts.PromptTemplate(
         input_variables=["question"],
         template="""
@@ -37,18 +27,25 @@ def paper_search(llm, query, semantic_scholar_api_key=None):
     )
 
     query_chain = langchain.chains.llm.LLMChain(llm=llm, prompt=prompt)
-    if not os.path.isdir("./query"):  # todo: move to ckpt
-        os.mkdir("query/")
+
     search = query_chain.run(query)
     print("\nSearch:", search)
-    papers = paper_scraper(search, pdir=f"query/{re.sub(' ', '', search)}", semantic_scholar_api_key=semantic_scholar_api_key)
+    #修改处
+    search_stripped = search.strip()
+    search_cleaned = re.sub(r'[<>:"/\\|?*]', '', search_stripped)
+    pdir = Path("query") / search_cleaned
+    try:
+        papers = paperscraper.search_papers(search_cleaned, pdir=pdir, serp_api_key= serp_api_key, semantic_scholar_api_key=semantic_scholar_api_key)
+    except KeyError as e:
+        return {"error": f"KeyError: {str(e)}", "message": "The requested key was not found."}
     return papers
 
 
-def scholar2result_llm(llm, query, k=5, max_sources=2, openai_api_key=None, semantic_scholar_api_key=None):
+def scholar2result_llm(llm, query, k=5, max_sources=2, openai_api_key=None,serp_api_key= None, semantic_scholar_api_key=None):
     """Useful to answer questions that require
     technical knowledge. Ask a specific question."""
-    papers = paper_search(llm, query, semantic_scholar_api_key=semantic_scholar_api_key)
+
+    papers = paper_search(llm, query, serp_api_key=serp_api_key,semantic_scholar_api_key=semantic_scholar_api_key)
     if len(papers) == 0:
         return "Not enough papers found"
     docs = paperqa.Docs(
@@ -60,7 +57,7 @@ def scholar2result_llm(llm, query, k=5, max_sources=2, openai_api_key=None, sema
     for path, data in papers.items():
         try:
             docs.add(path, data["citation"])
-        except (ValueError, FileNotFoundError, PdfReadError):
+        except (ValueError, FileNotFoundError, PdfReadError,UnboundLocalError):
             not_loaded += 1
 
     if not_loaded > 0:
@@ -79,23 +76,24 @@ class Scholar2ResultLLM(BaseTool):
         "knowledge. Ask a specific question."
     )
     llm: BaseLanguageModel = None
-    openai_api_key: str = None 
+    openai_api_key: str = None
+    serp_api_key: str = None
     semantic_scholar_api_key: str = None
 
 
-    def __init__(self, llm, openai_api_key, semantic_scholar_api_key):
+    def __init__(self, llm, openai_api_key,serp_api_key):
         super().__init__()
         self.llm = llm
         # api keys
         self.openai_api_key = openai_api_key
-        self.semantic_scholar_api_key = semantic_scholar_api_key
+        self.serp_api_key=serp_api_key
 
     def _run(self, query) -> str:
         return scholar2result_llm(
             self.llm,
             query,
             openai_api_key=self.openai_api_key,
-            semantic_scholar_api_key=self.semantic_scholar_api_key
+            serp_api_key=self.serp_api_key
         )
 
     async def _arun(self, query) -> str:

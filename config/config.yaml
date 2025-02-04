@@ -1,0 +1,8 @@
+LOGGER:
+    level: "DEBUG"
+    dir: "./logs/"
+    file: "log.txt"
+
+LLM:
+    model_name: "gpt-4o"
+    temperature: 0.1
