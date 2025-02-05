@@ -562,7 +562,7 @@ class RateLimits(float, Enum):
     """Rate limits (requests/sec) based on API provider."""
 
     SEMANTIC_SCHOLAR = 90.0
-    GOOGLE_SCHOLAR = 60.0
+    GOOGLE_SCHOLAR = 1.0
     # SEE: https://www.crossref.org/documentation/metadata-plus/#00343
     CROSSREF = 30.0  # noqa: PIE796
     SCRAPER = 30 / 60
@@ -897,8 +897,8 @@ async def a_search_papers(  # noqa: C901, PLR0912, PLR0915
             )
         )
     if search_type in ["default", "google"] and len(paths) < limit and has_more_data:
-        paths.update(
-            await a_search_papers(
+        try:
+            result = await a_search_papers(
                 query,
                 limit=limit,
                 pdir=pdir,
@@ -906,8 +906,7 @@ async def a_search_papers(  # noqa: C901, PLR0912, PLR0915
                 serp_api_key=serp_api_key,
                 _paths=paths,  # type: ignore[arg-type]
                 _limit=_limit,
-                _offset=_offset
-                + (GOOGLE_SEARCH_MAX_PAGE_SIZE if search_type == "google" else _limit),
+                _offset=_offset + (GOOGLE_SEARCH_MAX_PAGE_SIZE if search_type == "google" else _limit),
                 logger=logger,
                 year=year,
                 verbose=verbose,
@@ -915,7 +914,11 @@ async def a_search_papers(  # noqa: C901, PLR0912, PLR0915
                 batch_size=batch_size,
                 search_type=search_type,
             )
-        )
+            paths.update(result)  # 更新 paths
+        except Exception as e:
+            if logger is not None:
+                logger.exception(f"An error occurred: {e}")
+
     if _offset == 0:
         await scraper.close()
     return paths

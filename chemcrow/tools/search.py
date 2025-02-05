@@ -34,18 +34,23 @@ def paper_search(llm, query,serp_api_key= None, semantic_scholar_api_key=None):
     search_stripped = search.strip()
     search_cleaned = re.sub(r'[<>:"/\\|?*]', '', search_stripped)
     pdir = Path("query") / search_cleaned
-    try:
-        papers = paperscraper.search_papers(search_cleaned, pdir=pdir, serp_api_key= serp_api_key, semantic_scholar_api_key=semantic_scholar_api_key)
-    except KeyError as e:
-        return {"error": f"KeyError: {str(e)}", "message": "The requested key was not found."}
+    papers = paperscraper.search_papers(search_cleaned, pdir=pdir, serp_api_key= serp_api_key, semantic_scholar_api_key=semantic_scholar_api_key)
     return papers
 
 
 def scholar2result_llm(llm, query, k=5, max_sources=2, openai_api_key=None,serp_api_key= None, semantic_scholar_api_key=None):
     """Useful to answer questions that require
     technical knowledge. Ask a specific question."""
+    try:
+        papers = paper_search(llm, query, serp_api_key=serp_api_key,semantic_scholar_api_key=semantic_scholar_api_key)
+    except RuntimeError as e:
+    # 捕获 RuntimeError 错误
+        return (f"RuntimeError occurred while searching papers: {e}")
 
-    papers = paper_search(llm, query, serp_api_key=serp_api_key,semantic_scholar_api_key=semantic_scholar_api_key)
+    except Exception as e:
+    # 捕获所有其他类型的异常
+        return (f"An unexpected error occurred: {e}")
+ 
     if len(papers) == 0:
         return "Not enough papers found"
     docs = paperqa.Docs(
@@ -54,16 +59,18 @@ def scholar2result_llm(llm, query, k=5, max_sources=2, openai_api_key=None,serp_
         embeddings=OpenAIEmbeddings(openai_api_key=openai_api_key),
     )
     not_loaded = 0
-    for path, data in papers.items():
-        try:
-            docs.add(path, data["citation"])
-        except (ValueError, FileNotFoundError, PdfReadError,UnboundLocalError):
-            not_loaded += 1
-
-    if not_loaded > 0:
-        print(f"\nFound {len(papers.items())} papers but couldn't load {not_loaded}.")
+    if isinstance(papers, dict):
+        for path, data in papers.items():
+            try:
+                docs.add(path, data["citation"])
+            except (ValueError, FileNotFoundError, PdfReadError, UnboundLocalError, PermissionError, AttributeError) as e:
+                not_loaded += 1
+        if not_loaded > 0:
+            print(f"\nFound {len(papers.items())} papers but couldn't load {not_loaded}.")
+        else:
+            print(f"\nFound {len(papers.items())} papers and loaded all of them.")                
     else:
-        print(f"\nFound {len(papers.items())} papers and loaded all of them.")
+        return "Unexpected data format for papers."
 
     answer = docs.query(query, k=k, max_sources=max_sources).formatted_answer
     return answer
