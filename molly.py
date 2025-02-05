@@ -136,6 +136,7 @@ if question := st.chat_input("please ask me a question"):
             if not question_det_lang == "en":
                 answer = trans_agent.translate(answer, target_lang=question_det_lang)
             logger.info(f"ID: {st.session_state['session_id']}, 经过转译后的最终输出:\n{answer}")
+            answer =  answer.replace("\[", "\n$").replace("\]", "$\n")
             st.markdown(answer)
             msgs.add_ai_message(answer)
         except Exception as e:
