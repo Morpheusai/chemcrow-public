@@ -13,7 +13,7 @@ from chemcrow.frontend.streamlit_callback_handler import StreamlitCallbackHandle
 
 from src.context_process_agent import ContextProcessingAgent
 from src.log import logger
-from src.translate_agent import TranslationAgent
+from src.google_translate import googleTranslationAgent
 
 MODEL_NAME = CONFIG_YAML["LLM"]["model_name"]
 TEMPER = CONFIG_YAML["LLM"]["temperature"]
@@ -34,8 +34,8 @@ chem_agent = ChemCrow(
     local_rxn = True
 ).agent_executor
 
-# translator
-trans_agent = TranslationAgent()
+# translation
+translation_agent = googleTranslationAgent()
 
 # 上下文处理
 context_agent = ContextProcessingAgent(
@@ -100,9 +100,12 @@ for msg in msgs.messages:
 
 if question := st.chat_input("please ask me a question"):
     st.chat_message("human").write(question)
-    msgs.add_user_message(question)
+    translated_question, detectedlang_question = translation_agent.translate("en", question)
+    msgs.add_user_message(translated_question)
     st.session_state['input_counter'] += 1
     logger.info(f"ID: {st.session_state['session_id']}, 用户输入: \n{question}")
+    if detectedlang_question != "en":
+        logger.info(f"ID: {st.session_state['session_id']}, 翻译后的用户输入: \n{translated_question}")
     # st.session_state.messages.append({'role':'user','content':question})
     with st.chat_message("ai"):
         #file_callback = FileCallbackHandler(CONFIG_YAML["LOGGER"]["file"])
@@ -118,24 +121,16 @@ if question := st.chat_input("please ask me a question"):
             logger.info(f"!!!ID: {st.session_state['session_id']}, 多轮输入，需要进行上下文处理!!!")
             context = context_agent.process_context(msgs.messages)
             full_input = f"{context}"
+            logger.info(f"ID: {st.session_state['session_id']}, 用户经过多轮预处理后的输入:\n{full_input}")
         else:
-            full_input = question
-        logger.info(f"ID: {st.session_state['session_id']}, 用户经过多轮预处理后的输入:\n{full_input}")
+            full_input = translated_question
 
-        question_det_lang = trans_agent.detect_language(question)
-        full_det_lang = trans_agent.detect_language(full_input)
-        # Translate the full_input content to English, if it is not in English
-        if not full_det_lang == "en":
-            logger.info(f"!!!ID: {st.session_state['session_id']}, 中文输入，需要进行中转英处理!!!")
-            full_input = trans_agent.translate(full_input)
-        logger.info(f"ID: {st.session_state['session_id']}, 用户经过转译预处理后的输入:\n{full_input}")
-        
         try:
             answer = chem_agent.run(full_input, callbacks=[st_callback, file_callback])
-            logger.info(f"ID: {st.session_state['session_id']}, agent输出:\n{answer}")
-            if not question_det_lang == "en":
-                answer = trans_agent.translate(answer, target_lang=question_det_lang)
-            logger.info(f"ID: {st.session_state['session_id']}, 经过转译后的最终输出:\n{answer}")
+            logger.info(f"ID: {st.session_state['session_id']}, Agent输出:\n{answer}")
+            if detectedlang_question != "en":
+                answer, detectedlang_answer = translation_agent.translate(detectedlang_question, answer)
+                logger.info(f"ID: {st.session_state['session_id']}, 经过翻译后的Agent输出:\n{answer}")
             answer =  answer.replace("\[", "\n$").replace("\]", "$\n")
             st.markdown(answer)
             msgs.add_ai_message(answer)
