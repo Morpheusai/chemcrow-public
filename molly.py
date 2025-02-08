@@ -101,7 +101,7 @@ for msg in msgs.messages:
 if question := st.chat_input("please ask me a question"):
     st.chat_message("human").write(question)
     translated_question, detectedlang_question = translation_agent.translate("en", question)
-    msgs.add_user_message(translated_question)
+    msgs.add_user_message(question)
     st.session_state['input_counter'] += 1
     logger.info(f"ID: {st.session_state['session_id']}, 用户输入: \n{question}")
     if detectedlang_question != "en":
